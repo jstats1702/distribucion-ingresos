@@ -1,0 +1,447 @@
+---
+title: "Distribución de los ingresos en Colombia"
+author: 
+- Juan Sosa PhD
+- Email   jcsosam@unal.edu.co
+- GitHub  https://github.com/jstats1702 
+date: ""
+output:
+  html_document:
+    highlight: default
+    number_sections: yes
+    theme: cosmo
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+\newcommand{\simiid}{\,{\stackrel{\text{i.i.d.}}{\sim}}\,}
+\newcommand{\simind}{\,{\stackrel{\text{ind.}}{\sim}}\,}
+
+\newcommand{\yv}{\boldsymbol{y}}
+
+
+# Introducción
+
+La base de datos `personas.csv` disponible en la [página web del curso](https://sites.google.com/view/juansosa/bayesian-statistics?authuser=0), corresponde a una muestra aleatoria del módulo de Personas (para las que el ingreso total está disponible y es mayor que cero) de la encuesta **Medición de Pobreza Monetaria y Desigualdad 2021** llevada a cabo en Colombia por el DANE, la cual se encuentra disponible en este [enlace](https://microdatos.dane.gov.co/index.php/catalog/733).
+
+El Universo de la encuesta está conformado por la población civil no institucional, residente en todo el territorio nacional; va dirigida a todos los hogares encontrados en la vivienda.
+La encuesta utiliza informante directo para las personas de 18 años y más, y para aquellas de 10 a 17 años que trabajen o estén buscando trabajo. Para los demás se acepta informante idóneo (persona del hogar mayor de 18 años, que a falta del informante directo pueda responder correctamente las preguntas). No se acepta información de empleados del servicio doméstico, pensionistas, vecinos o menores, excepto cuando el menor de edad es el jefe del hogar o cónyuge.
+
+El objetivo de este trabajo es construir un modelo multinivel completamente Bayesiano, tomando como datos de entrenamiento el **ingreso total** (`ingtot`; ingreso total por persona que resulta de sumar cada una de las fuentes de ingresos tanto observadas como imputadas), con el fin de modelar los ingresos por **dominio** (`dominio`; cada una de las 24 a.M., otras cabeceras y resto), y establecer un ranking junto con una segmentación de los mismos. Por lo tanto, se toma como variable de agrupamiento el dominio, y como variable respuesta el ingreso total.
+
+# Modelos 
+
+### $\textsf{M}_1$: Modelo Normal {-}
+
+**Distribución muestral:**
+$$
+y_{i,j}\mid\theta,\sigma^2 \simiid\textsf{N}(\theta,\sigma^2)\,,
+$$
+para $i = 1,\ldots,n_j$ y $j = 1,\ldots,m$, donde $y_{i,j}$ es la variable respuesta del individuo $i$ en el grupo $j$ y $\textsf{N}(\theta,\sigma^2)$ denota la distribución Normal con media $\theta$ y varianza $\sigma^2$.
+
+**Distribución previa:**
+$$
+\theta\sim\textsf{N}(\mu_0,\gamma_0^2)\,,\quad
+\sigma^2\sim\textsf{GI}\left(\frac{\nu_0}{2},\frac{\nu_0\sigma^2_0}{2}\right)\,,
+$$
+donde $\mu_0,\gamma_0^2,\nu_0,\sigma^2_0$ son los hiperparámetros del modelo y $\textsf{GI}(\alpha,\beta)$ denota la distribución Gamma-Inversa con media $\frac{\beta}{\alpha-1}$, para $\alpha > 1$, y varianza $\frac{\beta^2}{(\alpha-1)^2(\alpha-2)}$, para $\alpha > 2$.
+
+
+### $\textsf{M}_2$: Modelo Normal con medias específicas {-}
+
+**Distribución muestral:**
+$$
+y_{i,j}\mid\theta_j,\sigma^2 \simind\textsf{N}(\theta_j,\sigma^2)\,.
+$$
+
+**Distribución previa:**
+$$
+\theta_j\mid\mu,\tau^2 \simiid\textsf{N}(\mu,\tau^2)\,,\quad
+\mu\sim\textsf{N}(\mu_0,\gamma_0^2)\,,\quad
+\tau^2\sim\textsf{GI}\left(\frac{\eta_0}{2},\frac{\eta_0\tau^2_0}{2}\right)\,,\quad
+\sigma^2\sim\textsf{GI}\left(\frac{\nu_0}{2},\frac{\nu_0\sigma^2_0}{2}\right)\,,
+$$
+donde $\mu_0,\gamma_0^2,\eta_0,\tau^2_0,\nu_0,\sigma^2_0$ son los hiperparámetros del modelo.
+
+
+### $\textsf{M}_3$: Modelo Normal con medias y varianzas específicas {-}
+
+**Distribución muestral:**
+$$
+y_{i,j}\mid\theta_j,\sigma_j^2 \simind\textsf{N}(\theta_j,\sigma^2_j)\,.
+$$
+
+**Distribución previa:**
+\begin{align*}
+&\theta_j\mid\mu,\tau^2 \simiid\textsf{N}(\mu,\tau^2)\,, &
+&\mu\sim\textsf{N}(\mu_0,\gamma_0^2)\,, &
+&\tau^2\sim\textsf{GI}\left(\frac{\eta_0}{2},\frac{\eta_0\tau^2_0}{2}\right)\,, &\\
+&\sigma^2_j\sim\textsf{GI}\left(\frac{\nu}{2},\frac{\nu\sigma^2}{2}\right)\,, &
+&\nu\sim\text{Constante}\,,&
+&\sigma^2\sim\textsf{G}\left(\frac{\alpha_0}{2},\frac{\beta_0}{2}\right)\,,&
+\end{align*}
+donde $\mu_0,\gamma_0^2,\eta_0,\tau^2_0,\nu,\alpha_0,\beta_0$ son los hiperparámetros del modelo y $\textsf{G}(\alpha,\beta)$ denota la distribución Gamma con media $\frac{\alpha}{\beta}$ y varianza $\frac{\alpha}{\beta^2}$.
+
+
+### $\textsf{M}_4$: Modelo t {-}
+
+**Distribución muestral:**
+$$
+y_{i,j}\mid\theta,\sigma^2 \simiid\textsf{t}_\kappa(\theta,\sigma^2)\,,
+$$
+donde $\textsf{t}_\kappa(\theta,\sigma^2)$ denota la distribución t con $\kappa$ grados de libertad con media $\theta$, para $\kappa > 1$, y varianza $\frac{\kappa}{\kappa - 2}\,\sigma^2$, para $\kappa > 2$.
+
+La variable aleatoria $X$ tiene distribución t con parámetros $\kappa \in \mathbb{N}$, $-\infty < \theta < \infty$, $\sigma^2 > 0$, i.e., $X\mid\kappa,\theta,\sigma^2\sim\textsf{t}_\kappa(\theta,\sigma^2)$, si su función de densidad de probabilidad es
+$$
+p(x\mid\kappa,\theta,\sigma^2) = \frac{1}{\sqrt{\pi\kappa\sigma^2}} \, \frac{\Gamma\left( (\kappa+1)/2 \right)}{\Gamma\left( \kappa/2 \right)}\,\left( 1 + \frac{( x - \theta )^2}{\kappa\sigma^2} \right)^{-(\kappa+1)/2} \,,\quad -\infty < x < \infty\,.
+$$
+Si $X\mid\kappa,\theta,\sigma^2\sim\textsf{t}_\kappa(\theta,\sigma^2)$, entonces $\textsf{E}(X) = \theta$, para $\kappa > 1$, y $\textsf{Var}(X) = \frac{\kappa}{\kappa - 2}\,\sigma^2$, para $\kappa > 2$.
+
+Esta distribución es útil para modelar \textit{outliers} y se encuentra implementada en el paquete \texttt{metRology} de \texttt{R} que se encuentra disponible en este [enlace](https://rdrr.io/cran/metRology/man/dt.scaled.html).
+
+Para ajustar este modelo de manera directa utilizando el muestreador de Gibbs, se debe tener en cuenta que la distribución muestral 
+$y_{i,j}\mid\theta,\sigma^2 \simiid\textsf{t}_\kappa(\theta,\sigma^2)$ es equivalente a la distribución jerárquica dada por
+$$
+y_{i,j}\mid\theta,\varsigma^2_{i,j} \simind\textsf{N}(\theta,\varsigma^2_{i,j})\,,\qquad
+\varsigma^2_{i,j}\mid\sigma^2\simiid \textsf{GI}\left( \frac{\kappa}{2}, \frac{\kappa\sigma^2}{2}\right)\,,
+$$
+donde las variables $\varsigma^2_{i,j}$ son cantidades auxiliares (desconocidas) cuyo objetivo es facilitar la implementación del muestreador de Gibbs. 
+
+La inclusión de las variables $\varsigma^2_{i,j}$ en el modelo permite que todas las distribuciones condicionales completas de las cantidades desconocidas (incluyendo las mismas variables auxiliares) tengan forma probabilística conocida. En Gelman et al. (2013, pp. 293-294) hay una discusión detallada al respecto. 
+Si no se consideran las variables $\varsigma^2_{i,j}$ en el modelo, la implementación del muestreador de Gibbs requeriría de otros métodos numéricos más sofisticados como el algoritmo de Metropolis-Hastings o el algoritmo de Monte Carlo Hamiltoniano, dado que la distribuciones condicionales completas tanto de $\theta$ como $\sigma^2$ no tendrían forma probabilística conocida.
+
+Esta misma consideración acerca de las variables auxiliares se debe tener en cuenta para la implementación computacional de los modelos 5 y 6.
+
+**Distribución previa:**
+$$
+\theta\sim\textsf{N}(\mu_0,\gamma_0^2)\,,\quad
+\sigma^2\sim\textsf{G}\left(\frac{\alpha_0}{2},\frac{\beta_0}{2}\right)\,,\quad
+\kappa\sim\text{Constante}\,,
+$$
+donde $\mu_0,\gamma_0^2,\alpha_0,\beta_0,\kappa$ son los hiperparámetros del modelo.
+
+
+### $\textsf{M}_5$: Modelo t con medias específicas {-}
+
+**Distribución muestral:**
+$$
+y_{i,j}\mid\theta_j,\sigma^2 \simind\textsf{t}_\kappa(\theta_j,\sigma^2)\,.
+$$
+
+**Distribución previa:**
+\begin{align*}
+&\theta_j\mid\mu,\tau^2 \simiid\textsf{N}(\mu,\tau^2)\,, &
+&\mu\sim\textsf{N}(\mu_0,\gamma_0^2)\,, &
+&\tau^2\sim\textsf{GI}\left(\frac{\eta_0}{2},\frac{\eta_0\tau^2_0}{2}\right)\,, &\\
+&\sigma^2\sim\textsf{G}\left(\frac{\alpha_0}{2},\frac{\beta_0}{2}\right)\,, &
+&\kappa\sim\text{Constante}\,, &
+& &
+\end{align*}
+donde $\mu_0,\gamma_0^2,\eta_0,\tau^2_0,\alpha_0,\beta_0,\kappa$ son los hiperparámetros del modelo.
+
+
+### $\textsf{M}_6$: Modelo t con medias y varianzas específicas {-}
+
+**Distribución muestral:**
+$$
+y_{i,j}\mid\theta_j,\sigma^2_j \simind\textsf{t}_\kappa(\theta_j,\sigma_j^2)\,.
+$$
+
+**Distribución previa:**
+\begin{align*}
+&\theta_j\mid\mu,\tau^2 \simiid\textsf{N}(\mu,\tau^2)\,, &
+&\mu\sim\textsf{N}(\mu_0,\gamma_0^2)\,, &
+&\tau^2\sim\textsf{GI}\left(\frac{\eta_0}{2},\frac{\eta_0\tau^2_0}{2}\right)\,, &\\
+&\sigma_j^2\simiid\textsf{G}\left(\frac{\alpha}{2},\frac{\beta}{2}\right)\,, &
+&\alpha\sim\text{Constante}\,, &
+&\beta\sim\textsf{G}\left(\frac{a_\beta}{2},\frac{b_\beta}{2}\right)\,, &\\
+& & 
+&\kappa\sim\text{Constante}\,, &
+& & 
+\end{align*}
+donde $\mu_0,\gamma_0^2,\eta_0,\tau^2_0,\alpha,a_\beta,b_\beta,\kappa$ son los hiperparámetros del modelo.
+
+# Grafo acíclico dirigido de $\textsf{M}_6$
+
+A continuación se presenta el DAG de $\textsf{M}_6$ incluyendo las variables auxiliares.
+
+```{r, eval = TRUE, echo=FALSE, out.width="50%", fig.pos = 'H', fig.align = 'center'}
+knitr::include_graphics("DAG_M6.png")
+```
+
+- $\textsf{N}$: Normal.
+- $\textsf{G}$: Gamma.
+- $\textsf{GI}$: Gamma-Inversa.
+
+# Ajuste de los modelos
+
+En todos los casos, se utiliza la siguiente convención:
+
+- $n$: número total de personas en la muestra.
+- $m$: número de dominios.
+- $n_j$: número de personas en el dominio $j$.
+- $y_{i,j}$: ingreso total en **escala logarítmica** de la persona $i$ en el dominio $j$.
+
+Los modelos presentados anteriormente se ajustan por medio de [muestreadores de Gibbs](https://en.wikipedia.org/wiki/Gibbs_sampling#:~:text=In%20statistics%2C%20Gibbs%20sampling%20or,when%20direct%20sampling%20is%20difficult.) con $B = 11000$ iteraciones. Las primeras 1000 iteraciones del algoritmo constituyen el periodo de calentamiento del algoritmo, de manera que no se tienen en cuenta para realizar las inferencias. Para tal fin se emplean distribuciones previas empíricas difusas definidas por los siguientes hiperparámetros:
+
+- $\textsf{M}_1$: $\mu_0 = 13.495$, $\gamma_0^2 = 11.382$, $\nu_0 = 1$, $\sigma^2_0 = 1.182$.
+- $\textsf{M}_2$: $\mu_0 = 13.495$, $\gamma_0^2 = 11.382$, $\eta_0 = 1$, $\tau^2_0 = 1.182$, $\nu_0 = 1$, $\sigma^2_0 = 1.182$.
+- $\textsf{M}_3$: $\mu_0 = 13.495$, $\gamma_0^2 = 11.382$, $\eta_0 = 1$, $\tau^2_0 = 1.182$, $\nu = 1$, $\alpha_0 = 1$, $\beta_0 = 0.846$.
+- $\textsf{M}_4$: $\mu_0 = 13.495$, $\gamma_0^2 = 11.382$, $\alpha_0 = 1$, $\beta_0 = 0.846$, $\kappa = 3$.
+- $\textsf{M}_5$: $\mu_0 = 13.495$, $\gamma_0^2 = 11.382$, $\eta_0 = 1$, $\tau^2_0 = 1.182$, $\alpha_0 = 1$, $\beta_0 = 0.846$, $\kappa = 3$.
+- $\textsf{M}_6$: $\mu_0 = 13.495$, $\gamma_0^2 = 11.382$, $\eta_0 = 1$, $\tau^2_0 = 1.182$, $\alpha = 1$, $a_\beta = 1$, $b_\beta =  1.182$, $\kappa = 3$.
+
+Los hiperparámetros se establecieron teniendo en cuenta que la media muestral es $\bar{y} = 13.495$, la varianza muestral es $s^2_y = 1.182$ y el inverso de la varianza muestral es $1/s^2_y = 0.846$.
+
+En este [repositorio de GitHub](https://github.com/jstats1702/distribucion-ingresos) se encuentra la código de `R` para ajustar todos los modelos. A continuación se presenta la cadena de la log-verosimilitud de cada $\textsf{M}_k$, para $k=1,\ldots,6$.
+
+```{r}
+# settings
+suppressMessages(suppressWarnings(library(dplyr)))
+# datos
+load("Personas.RData")
+# datos y estadísticos
+m <- length(table(dat$dominio))
+n <- sum(table(dat$dominio))
+y <- log(dat$ingtot)
+Y <- vector(mode = "list", length = m)
+g <- rep(NA, n)
+for (j in 1:m) {
+  idx <- dat$dominio == unique(dat$dominio)[j]
+  g[idx] <- j
+  Y[[j]] <- y[idx]
+}
+estadisticos <- dat %>% 
+  group_by(dominio) %>% 
+  summarise(dominio = unique(dominio), nj = n(), yb = mean(log(ingtot)), s2 = var(log(ingtot)))
+nj <- estadisticos$nj
+yb <- estadisticos$yb
+s2 <- estadisticos$s2
+# modelos ajustados
+load("Peronas-M1.RData")
+load("Peronas-M2.RData")
+load("Peronas-M3.RData")
+load("Peronas-M4.RData")
+load("Peronas-M5.RData")
+load("Peronas-M6.RData")
+```
+
+
+```{r, fig.align='center'}
+yrange <- range(M1$LL, M2$LL, M3$LL, M4$LL, M5$LL, M6$LL) + c(0,15)
+plot (M1$LL, type = "l", col = adjustcolor(1, 0.75) , ylim = yrange, xlab = "Iteración", ylab = "Log-verosimilitud", main = "")
+lines(M2$LL, type = "l", col = adjustcolor(2, 0.75))
+lines(M3$LL, type = "l", col = adjustcolor(3, 0.75))
+lines(M4$LL, type = "l", col = adjustcolor(4, 0.75))
+lines(M5$LL, type = "l", col = adjustcolor(5, 0.75))
+lines(M6$LL, type = "l", col = adjustcolor(6, 0.75))
+legend("top", legend = paste0("M",1:6), fill = 1:6, border = 1:6, bty = "n", horiz = T)
+```
+
+**Se observa que en todos los casos, basados en la log-verosimilitud, no hay evidencia de falta de convergencia.**
+
+
+# Comparación de modelos
+
+Con el fin de comparar predictivamente los modelos, se calcula el **Criterio de Información de la Devianza** (DIC, *Deviance Information Criterion*) de cada $\textsf{M}_k$, para $k=1,\ldots,6$. El DIC es una versión Bayesiana del **Criterio de Información de Akaike** (AIC, *Akaike Infomation Criterion*) y se define como:
+$$
+\text{DIC} = -2\,\text{log}\,p(\boldsymbol{y}\mid\hat{\boldsymbol{\theta}}_{\text{Bayes}}) + 2p_{\text{DIC}}
+$$
+donde 
+$$
+\hat{\boldsymbol{\theta}}_{\text{Bayes}} = \textsf{E}(\boldsymbol{\theta}\mid\boldsymbol{y})\approx\frac{1}{B}\sum_{b=1}^B \boldsymbol{\theta}^{(b)}
+$$
+es la media posterior de $\boldsymbol{\theta}$ y 
+$$
+p_{\text{DIC}} = 2\left( \text{log}\,p(\boldsymbol{y}\mid\hat{\boldsymbol{\theta}}_{\text{Bayes}}) - \textsf{E}( \text{log}\,p(\boldsymbol{y}\mid\boldsymbol{\theta})  \mid \boldsymbol{y} ) \right) \approx 2\left( \text{log}\,p(\boldsymbol{y}\mid\hat{\boldsymbol{\theta}}_{\text{Bayes}}) - \frac{1}{B}\sum_{b=1}^B \text{log}\,p\left(\boldsymbol{y}\mid \boldsymbol{\theta}^{(b)}\right)  \right)
+$$
+es el **número efectivo de parámetros**.
+
+```{r}
+# log-verosimilitud
+lpyth_m1 <- sum(dnorm(x = y, mean = mean(M1$THETA), sd = sqrt(mean(M1$SIG2)), log = T))
+lpyth_m2 <- sum(dnorm(x = y, mean = rep(colMeans(M2$THETA), nj), sd = sqrt(mean(M2$SIG2)), log = T))
+lpyth_m3 <- sum(dnorm(x = y, mean = rep(colMeans(M3$THETA), nj), sd = sqrt(rep(colMeans(M3$SIG2), nj)), log = T))
+lpyth_m4 <- sum(metRology::dt.scaled(x = y, df = 3, mean = mean(M4$THETA), sd = sqrt(mean(M4$SIG2)), log = T))
+lpyth_m5 <- sum(metRology::dt.scaled(x = y, df = 3, mean = rep(colMeans(M5$THETA), nj), sd = sqrt(mean(M5$SIG2)), log = T))
+lpyth_m6 <- sum(metRology::dt.scaled(x = y, df = 3, mean = rep(colMeans(M6$THETA), nj), sd = sqrt(rep(colMeans(M6$SIG2), nj)), log = T))
+# pDIC
+pDIC_m1 <- 2*(lpyth_m1 - mean(M1$LL))
+pDIC_m2 <- 2*(lpyth_m2 - mean(M2$LL))
+pDIC_m3 <- 2*(lpyth_m3 - mean(M3$LL))
+pDIC_m4 <- 2*(lpyth_m4 - mean(M4$LL))
+pDIC_m5 <- 2*(lpyth_m5 - mean(M5$LL))
+pDIC_m6 <- 2*(lpyth_m6 - mean(M6$LL))
+# DIC
+dic_m1 <- -2*lpyth_m1 + 2*pDIC_m1 
+dic_m2 <- -2*lpyth_m2 + 2*pDIC_m2 
+dic_m3 <- -2*lpyth_m3 + 2*pDIC_m3 
+dic_m4 <- -2*lpyth_m4 + 2*pDIC_m4 
+dic_m5 <- -2*lpyth_m5 + 2*pDIC_m5 
+dic_m6 <- -2*lpyth_m6 + 2*pDIC_m6
+# tabla
+tab <- cbind(c( dic_m1, dic_m2, dic_m3, dic_m4, dic_m5, dic_m6),
+             c(pDIC_m1,pDIC_m2,pDIC_m3,pDIC_m4,pDIC_m5,pDIC_m6))
+rownames(tab) <- paste0("M", 1:6)
+colnames(tab) <- c("DIC", "pDIC")
+knitr::kable(x = tab, digits = 2, align = "c", caption = "DIC y número efectivo de parámetros de cada modelo.")
+```
+
+**Se observa que el mejor modelo en términos predictivos (penalizado por el número efectivo de parámetros) es el Modelo 6, dado que este modelo minimiza el DIC. También se observa que el número efectivo de parámetros corresponde es aproximadamente 48.**
+
+**Referencias:**
+
+- *Spiegelhalter, D. J., Best, N. G., Carlin, B. P., & Van Der Linde, A. (2002).* ***Bayesian measures of model complexity and fit.*** *Journal of the royal statistical society: Series b (statistical methodology), 64(4), 583-639.*
+- *Spiegelhalter, D. J., Best, N. G., Carlin, B. P., & Van der Linde, A. (2014).* ***The deviance information criterion: 12 years on.*** *Journal of the Royal Statistical Society: Series B: Statistical Methodology, 485-493.*
+
+
+# Bondad de ajuste de $\textsf{M}_6$ en Bogotá D.C.
+
+Es posible chequear la bondad de ajuste interna del modelo por medio de **estadísticos de prueba** calculados a partir de la distribución predictiva posterior del estadístico.
+
+Si el estadístico es un valor típico de la distribución predictiva posterior, entonces se dice que el modelo captura adecuadamente la característica de interés que representa el estadístico de prueba. Esta característica se puede cuantificar por medio del [valor $p$ predictivo posterior](https://rpubs.com/jstats1702/935384) (ppp), esto es, la probabilidad posterior de que el estadístico sea mayor que el valor observado correspondiente. 
+
+Los resultados correspondientes para Bogotá asociados con la media, la mediana, la desviación estándar, el coeficiente de variación, el rango y el rango intercuartílico usando $\textsf{M}_6$ se presentan a continuación.
+
+```{r}
+# estadísticos de prueba: Bogotá
+tsf <- function(x) as.numeric(c(mean(x), median(x), sd(x), sd(x)/mean(x), diff(range(x)), diff(quantile(x,c(0.25,0.75)))))
+i   <- 3
+yi  <- y[g==i]
+ni  <- length(yi)
+# estadísticos de prueba
+B <- 10000
+TS <- array(data = NA, dim = c(B,6))
+set.seed(6)
+for (b in 1:B) {
+  # M6
+  yrep <- metRology::rt.scaled(n = ni, df = 3, mean = M6$THETA[b,i], sd = sqrt(M6$SIG2[b,i]))
+  TS[b,] <- tsf(yrep)
+}
+```
+
+
+```{r}
+# tabla
+TS0 <- tsf(yi)
+PPP <- matrix(NA, nrow = 1, ncol = 6)
+for (k in 1:6) {
+  PPP[1, k] <- mean(TS[,k] > TS0[k])
+}
+rownames(PPP) <- paste0("M_", 6)
+colnames(PPP) <- c("Media","Mediana","DE","CV","R","RI")
+knitr::kable(x = PPP, digits = 3, align = "c", caption = "Valores $p$ predictivos posteriores (ppp). DE: desviación estándar. CV: coeficiente de variación. R: rango. RI: rango intercuartílico.")
+```
+
+
+***El Modelo 6 permite caracterizar apropiadamente la media, la mediana, la desviación estándar, el coeficiente de variación, el rango y el rango intercuartílico, dado que ningún valor ppp es extremo (menor a 5% o superior a 95%).***
+
+# Ranking
+
+A continuación se presenta un ranking Bayesiano de los dominios basado en los efectos promedio $\theta_1,\ldots,\theta_m$ de $\textsf{M}_6$. La siguiente visualización incluye simultáneamente las estimaciones puntuales y los intervalos de credibilidad al 95\% de cada $\theta_j$, para $j=1,\ldots,m$.
+
+```{r,fig.align='center', fig.height=7.5, fig.width=6.5,  fig.cap="Ranking de los dominios basado en los efectos promedio del Modelo 4. En rojo: efectos promedio significativamente inferiores a 13.830. En negro: efectos promedio que no difieren significativamente de 13.830. En verde: efectos promedio significativamente superiores a 13.830. Se observa que 13.830 corresponde a un SMLMV de 2022 en escala logarítmica (línea vertical en color gris)."}
+# ranking Bayesiano
+ids  <- estadisticos$dominio
+that <- colMeans(M6$THETA)
+ic   <- apply(X = M6$THETA, MARGIN = 2, FUN = function(x) quantile(x, c(0.025,0.975)))
+# ranking
+ranking <- order(that) 
+ids  <- ids [ ranking]
+that <- that[ ranking]
+ic   <- ic  [,ranking]
+# colores
+c0 <- log(1014980) # SMLMV
+colo <- rep(2, m)
+colo[which(ic[1,] > c0)] <- 3
+colo[which(ic[2,] < c0)] <- 1
+colo <- c("darkred","black","darkgreen")[colo]
+# viz
+par(mfrow = c(1,1), mar = c(4,8,1.5,1.5), mgp = c(2.5,0.75,0))
+plot(NA, NA, xlab = "Ingresos (log)", ylab = "", main = "Ranking", xlim = range(ic), ylim = c(1,m), cex.axis = 0.75, yaxt = "n")
+axis(side = 2, at = 1:m, labels = ids, las = 2)
+abline(v = c0,  col = "gray", lwd = 3)
+abline(h = 1:m, col = "lightgray", lwd = 1)
+for (j in 1:m) {
+  segments(x0 = ic[1,j], y0 = j, x1 = ic[2,j], y1 = j, col = colo[j])
+  lines(x = that[j], y = j, type = "p", pch = 16, cex = 0.8, col = colo[j])
+}
+```
+
+
+**El Top 5 del ranking está conformado por 1. Medellin, 2. Manizales, 3. Tunja, 4. Bogotá, 5. Bucaramanga.Solamente Medellin y Manizales tiene efectos promedio significativamente superiores a 1 SMLMV de 2022 (valor de referencia). Aunque los efectos promedio de Tunja y Bogotá no difieren significativamente del valor de referencia, las estimaciones puntuales correspondientes son claramente superiores. Similarmente, el efecto promedio de Bucaramanga no difiere significativamente del valor de referencia, pero su estimación puntual es aproximadamente igual a este valor. Las últimas posiciones del ranking las ocupan 21. Quibdo, 22. Rioacha, 23. Resto Urbano, 24. Sincelejo, 25. Rural. Este último dominio (Rural) se encuentra muy por debajo de los demás dominios. Finalmente, la incertidumbre asociada con las estimaciones de los efectos promedio, la cual se ve reflejada en la amplitud de los intervalos, varia considerablemente.**
+
+# Top 5
+
+A continuación se estima puntualmente la media, la desviación estándar y el coeficiente de variación de los ingresos para el Top 5 del ranking usando $\textsf{M}_6$. Para lograr tal fin en escala real se emplea el [método delta](https://en.wikipedia.org/wiki/Delta_method) dado que todos los modelos se ajustaron en escala log.
+
+```{r}
+ids   <- estadisticos$dominio
+that  <- colMeans(M6$THETA)
+s2hat <- colMeans(3/(3-2)*M6$SIG2)
+ranking <- order(that) 
+ids   <- ids [ranking]
+that  <- that[ranking]
+s2hat <- s2hat[ranking]
+tab <- cbind(25:1,exp(that),sqrt(exp(that)^2*s2hat), sqrt(s2hat)*100)
+colnames(tab) <- c("Ranking","Media","DE","CV (%)")
+rownames(tab) <- ids
+knitr::kable(x = tab[25:21,], digits = 1, align = "c", caption = "Estimaciones de la media, la desviación estándar (DE) y el coeficiente de variación (CV) de los ingresos para el Top 5 del ranking usando el Modelo 6. Las estimaciones de la media y la desviación estándar estánd dadas en la escala real en pesos y la del CV en puntos porcentuales.")
+```
+
+**Se observa que la volatilidad (variabilidad) de los ingresos en estos dominios es muy alta a pesar de ocupar las primeras posiciones del ranking.**
+
+# Segmentación
+
+Con el fin de segmentar los 25 dominios de acuerdo con los ingresos totales de las personas, se conforma un arreglo que contenga las estimaciones puntuales de los $\theta_j$ y los $\sigma_j$ de todos los dominios usando $\textsf{M}_6$. A continuación se usa este arreglo como insumo, para segmentar los dominios por medio de [agrupación jerárquica](https://uc-r.github.io/kmeans_clustering) con cuatro grupos. 
+
+```{r, fig.align='center'}
+# librerias
+suppressMessages(suppressWarnings(library(factoextra)))
+suppressMessages(suppressWarnings(library(cluster)))
+# arreglo
+X <- scale(x = cbind(colMeans(M6$THETA), colMeans(sqrt(M6$SIG2))))
+rownames(X) <- estadisticos$dominio
+colnames(X) <- c("theta","sigma")
+# agrupamiento jerárquico
+clust <- agnes(x = X, method = "ward")
+labs <- cutree(as.hclust(clust), k = 4)
+colo <- c("blue","green","red","orange")
+# viz
+par(mfrow = c(1,2), mar = c(4,3,1.4,1.4), mgp = c(1.75,0.75,0))
+pltree(clust, cex = 0.5, hang = -1, main = "") 
+rect.hclust(clust, k = 4, border = colo[c(1,4,2,3)])
+plot(X, col = colo[labs], pch = c(15:18)[labs], cex = 1.1, xlab = expression(theta), ylab = expression(sigma))
+```
+
+Repitiendo este mismo protocolo en cada iteración del muestreador de Gibbs se obtiene que los mismos dominios tienen una probabilidad posterior alta de pertenecer al mismo grupo (colores más oscuros), pero se distinguen dos grandes grupos, uno del dominio 1 al 14 y otro del dominio 15 al 25 (usando el ordenamiento del ranking).
+
+```{r}
+BB <- 1000
+LABS <- NULL
+for (b in 1:BB) {
+  X <- scale(x = cbind(M6$THETA[b,], sqrt(M6$SIG2[b,])))
+  clust <- agnes(x = X, method = "ward")
+  LABS <- rbind(LABS, cutree(as.hclust(clust), k = 4))
+}
+```
+
+```{r}
+A <- matrix(data = 0, nrow = m, ncol = m)
+for (i in 1:(m-1)) {
+  for (j in (i+1):m) {
+    for (b in 1:BB) {
+      if (LABS[b,i] == LABS[b,j]) A[i,j] <- A[i,j] + 1/BB
+    }
+  }
+}
+A <- A + t(A)
+diag(A) <- 1
+```
+
+```{r, fig.align='center'}
+corrplot::corrplot(corr = A[ranking,ranking], type = "full", col.lim = c(0,1),  method = "shade", addgrid.col = "gray90", tl.col = "black")
+```
+
